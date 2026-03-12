@@ -3,6 +3,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
 
+# ---- PAGE CONFIG ----
+st.set_page_config(
+    page_title='Sales Dashboard',
+    page_icon=":bar_chart:",
+    layout="wide",
+)
+
+# ---- SAFE GROUP SUM FUNCTION ----
 def safe_group_sum(df, group_col, sum_cols=None, sort_col=None):
     if sum_cols is None:
         sum_cols = df.select_dtypes(include="number").columns.tolist()
@@ -11,45 +19,29 @@ def safe_group_sum(df, group_col, sum_cols=None, sort_col=None):
         result = result.sort_values(by=sort_col)
     return result
 
-# Load your data
-df = pd.read_excel("supermarkt_sales.xlsx", engine="openpyxl")
-
-# Filtered selection logic...
-df_selection = df  # (apply your filters here)
-
-# Safe aggregation
-df_selection = safe_group_sum(df_selection, "Product line", ["Total"], "Total")
-st.write(df_selection)
-st.set_page_config(page_title='Sales Dashboard',
-                   page_icon= ":bar_chart:",
-                   layout= "wide",
-)
-
+# ---- LOAD DATA ----
 @st.cache_data
 def get_data_from_excel():
     df = pd.read_excel(
-        io='supermarkt_sales.xlsx',
-        engine='openpyxl',
-        sheet_name='Sales',
+        io="supermarkt_sales.xlsx",
+        engine="openpyxl",
+        sheet_name="Sales",
         skiprows=3,
-        usecols='B:R',
+        usecols="B:R",
         nrows=1000
     )
-
-    # add Hour Column To Dataframe
     df["hour"] = pd.to_datetime(df["Time"], format="%H:%M:%S").dt.hour
     return df
+
 df = get_data_from_excel()
 
-# ---- SIDEBAR ----
-
+# ---- SIDEBAR FILTERS ----
 st.sidebar.header("Please Filter Here:")
 city = st.sidebar.multiselect(
     "Select The City:",
     options=df["City"].unique(),
     default=df["City"].unique()
 )
-
 
 customer_type = st.sidebar.multiselect(
     "Select The Customer Type:",
@@ -67,83 +59,77 @@ df_selection = df.query(
     "City == @city & Customer_type == @customer_type & Gender == @gender"
 )
 
-
 # ---- MAINPAGE ----
-
 st.title(":bar_chart: Sales Dashboard")
 st.markdown("##")
 
-#Top KPI's
-
-total_sales = int(df_selection['Total'].sum())
-average_rating = round(df_selection["Rating"].mean(),1)
-try:
-    star_rating = ":star:" * int(round(average_rating,0))
-except:
-    star_rating = 0
-average_sales_by_transaction = round(df_selection["Total"].mean(),2)
+# KPIs
+total_sales = int(df_selection["Total"].sum())
+average_rating = round(df_selection["Rating"].mean(), 1)
+star_rating = ":star:" * int(round(average_rating, 0))
+average_sales_by_transaction = round(df_selection["Total"].mean(), 2)
 
 left_column, middle_column, right_column = st.columns(3)
 with left_column:
-    st.subheader('Total Sales')
-    st.subheader(f'US $ {total_sales:,}')
+    st.subheader("Total Sales")
+    st.subheader(f"US $ {total_sales:,}")
 with middle_column:
     st.subheader("Average Rating:")
-    st.subheader(f'{average_rating} {star_rating}')
+    st.subheader(f"{average_rating} {star_rating}")
 with right_column:
     st.subheader("Average Sales Per Transaction")
-    st.subheader(f'US $ {average_sales_by_transaction}')
+    st.subheader(f"US $ {average_sales_by_transaction}")
 
 st.markdown("---")
 
-# Sales By Product Line Using Bar Chart
-sales_by_product_line = (
-    df_selection.groupby(by=["Product line"]).sum()[["Total"]].sort_values(by="Total")
-)
+# ---- SALES BY PRODUCT LINE ----
+sales_by_product_line = safe_group_sum(df_selection, "Product line", ["Total"], "Total")
 fig_product_sales = px.bar(
     sales_by_product_line,
     x="Total",
-    y= sales_by_product_line.index,
+    y=sales_by_product_line.index,
     orientation="h",
-    title= "<b>Sales By Product Line </b>",
-    color_discrete_sequence = ["#0083B8"] * len(sales_by_product_line),
+    title="<b>Sales By Product Line</b>",
+    color_discrete_sequence=["#0083B8"] * len(sales_by_product_line),
     template="plotly_white"
 )
-
 fig_product_sales.update_layout(
-    plot_bgcolor= "rgba(0,0,0,0)",
-    xaxis =(dict(showgrid=False))
+    plot_bgcolor="rgba(0,0,0,0)",
+    xaxis=dict(showgrid=False)
 )
 
-
-# SALES BY HOUR USING BAR CHART
-sales_by_hour = df_selection.groupby(by=["hour"]).sum()[["Total"]]
+# ---- SALES BY HOUR ----
+sales_by_hour = safe_group_sum(df_selection, "hour", ["Total"], None)
 fig_hourly_sales = px.bar(
     sales_by_hour,
-    x= sales_by_hour.index,
+    x=sales_by_hour.index,
     y="Total",
     title="<b>Sales By Hour</b>",
     color_discrete_sequence=["#0083B8"] * len(sales_by_hour),
     template="plotly_white"
 )
-
 fig_hourly_sales.update_layout(
     xaxis=dict(tickmode="linear"),
-    plot_bgcolor= "rgba(0,0,0,0)",
-    yaxis =(dict(showgrid=False))
+    plot_bgcolor="rgba(0,0,0,0)",
+    yaxis=dict(showgrid=False)
 )
 
 left_column, right_column = st.columns(2)
 left_column.plotly_chart(fig_hourly_sales, use_container_width=True)
 right_column.plotly_chart(fig_product_sales, use_container_width=True)
 
-#Hide Streamlit Style
+# ---- HIDE STREAMLIT STYLE ----
 hide_st_style = """
-                <style>
-                #MainMenu {visibility: hidden;}
-                footer {visibility: hidden;}
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_st_style, unsafe_allow_html=True)
                 header {visibility: hidden;}
                 </style>
                 """
 st.markdown(hide_st_style, unsafe_allow_html = True)
+
 

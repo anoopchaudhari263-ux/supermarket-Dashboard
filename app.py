@@ -1,7 +1,25 @@
-import pandas as pd
-import plotly.express as px
 import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import plotly.express as px
 
+def safe_group_sum(df, group_col, sum_cols=None, sort_col=None):
+    if sum_cols is None:
+        sum_cols = df.select_dtypes(include="number").columns.tolist()
+    result = df.groupby(group_col)[sum_cols].sum()
+    if sort_col and sort_col in result.columns:
+        result = result.sort_values(by=sort_col)
+    return result
+
+# Load your data
+df = pd.read_excel("supermarkt_sales.xlsx", engine="openpyxl")
+
+# Filtered selection logic...
+df_selection = df  # (apply your filters here)
+
+# Safe aggregation
+df_selection = safe_group_sum(df_selection, "Product line", ["Total"], "Total")
+st.write(df_selection)
 st.set_page_config(page_title='Sales Dashboard',
                    page_icon= ":bar_chart:",
                    layout= "wide",
@@ -128,3 +146,4 @@ hide_st_style = """
                 </style>
                 """
 st.markdown(hide_st_style, unsafe_allow_html = True)
+
